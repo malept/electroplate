@@ -1,5 +1,5 @@
-#! /usr/bin/env node
-import fs from 'fs'
+#!/usr/bin/env node
+import fs from 'fs-extra'
 import ora from 'ora'
 import path from 'path'
 import program from 'commander'
@@ -9,34 +9,42 @@ program
   .version(require('../package.json').version)
   .option("-u, --url <url>", "url to electroplate")
   .option("-i, --icon <icon>", "icon for package")
-  .option("-n, --name <name>", "name of app")
+  .option("-n, --app-name <name>", "name of app")
   .parse(process.argv)
 
 async function main() {
-  const spinner = ora(`Electroplating ${program.name || ""}`).start();
+  console.log(`Electroplating ${program.appName || ""}...`)
 
-  if (!fs.existsSync('./out')) {
-    fs.mkdirSync("./out")
+  const electroplatedDir = path.resolve("./out");
+
+  if (!await fs.pathExists(electroplatedDir)) {
+    await fs.mkdirs(electroplatedDir);
   }
 
   await electronForge.init({
+    interactive: true,
     template: "electroplate",
-    dir: path.resolve("./out"),
+    dir: electroplatedDir,
   })
-
-  spinner.succeed()
 
   const config = {
     url: program.url
   }
-  const productName = program.name || "electroplated-app"
+  const productName = program.appName || "electroplated-app"
   const packageJSON = require(path.resolve("out", "package.json"));
   packageJSON.config.forge.electronPackagerConfig.icon = program.icon;
   packageJSON.name = productName;
   packageJSON.productName = productName;
-  fs.writeFileSync(path.resolve("out", "package.json"), JSON.stringify(packageJSON))
-  fs.writeFileSync(path.resolve("out", "config.json"), JSON.stringify(config))
+  await fs.writeJson(path.resolve("out", "package.json"), packageJSON);
+  await fs.writeJson(path.resolve("out", "config.json"), config);
 
-  await electronForge.package({dir: path.resolve("out")})
+  console.log("Electroplated!")
+
+  await electronForge.package({
+    dir: path.resolve("out"),
+    interactive: true
+  });
+
+  console.log('Done!')
 }
 main();
